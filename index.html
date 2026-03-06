@@ -1,0 +1,862 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>현대컨테이너 단가계산기</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  :root {
+    --bg: #0f1117;
+    --surface: #1a1d27;
+    --surface2: #222638;
+    --border: #2e3348;
+    --accent: #4f8ef7;
+    --accent2: #f7a24f;
+    --text: #e8eaf0;
+    --muted: #6b7280;
+    --green: #34d399;
+    --red: #f87171;
+    --purple: #a78bfa;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Noto Sans KR', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    padding: 16px;
+  }
+
+  .header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 20px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .logo-badge {
+    background: var(--accent);
+    color: #fff;
+    font-weight: 900;
+    font-size: 11px;
+    padding: 4px 8px;
+    border-radius: 4px;
+    letter-spacing: 1px;
+    flex-shrink: 0;
+  }
+
+  .header h1 {
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--text);
+  }
+
+  .header .subtitle {
+    font-size: 11px;
+    color: var(--muted);
+    margin-left: auto;
+    font-family: 'JetBrains Mono', monospace;
+    text-align: right;
+    line-height: 1.6;
+    white-space: pre;
+  }
+
+  .spec-section {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 16px;
+    margin-bottom: 16px;
+  }
+
+  .section-label {
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--accent);
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    margin-bottom: 12px;
+  }
+
+  .spec-inputs {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+
+  .spec-field {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    flex: 1;
+    min-width: 70px;
+  }
+
+  .spec-field label {
+    font-size: 10px;
+    color: var(--muted);
+    font-weight: 700;
+    letter-spacing: 0.5px;
+  }
+
+  .spec-field input {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text);
+    font-size: 18px;
+    font-weight: 700;
+    font-family: 'JetBrains Mono', monospace;
+    padding: 10px 12px;
+    text-align: center;
+    width: 100%;
+    transition: border-color 0.2s;
+  }
+
+  .spec-field input:focus { outline: none; border-color: var(--accent); }
+
+  .spec-sep {
+    font-size: 20px;
+    font-weight: 900;
+    color: var(--muted);
+    margin-top: 18px;
+  }
+
+  .spec-preview {
+    background: var(--surface2);
+    border-radius: 8px;
+    padding: 8px 14px;
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--accent);
+    font-family: 'JetBrains Mono', monospace;
+    margin-top: 10px;
+    text-align: center;
+  }
+
+  .search-section {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 16px;
+    margin-bottom: 16px;
+    position: relative;
+  }
+
+  .search-wrap { position: relative; }
+
+  .search-input {
+    width: 100%;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text);
+    font-size: 15px;
+    font-family: 'Noto Sans KR', sans-serif;
+    padding: 12px 16px;
+    transition: border-color 0.2s;
+  }
+
+  .search-input:focus { outline: none; border-color: var(--accent); }
+  .search-input::placeholder { color: var(--muted); }
+
+  .dropdown {
+    position: absolute;
+    top: calc(100% + 6px);
+    left: 0;
+    right: 0;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    max-height: 320px;
+    overflow-y: auto;
+    z-index: 100;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+  }
+
+  .dropdown-item {
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border);
+    cursor: pointer;
+    transition: background 0.15s;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .dropdown-item:last-child { border-bottom: none; }
+  .dropdown-item:hover { background: var(--surface); }
+
+  .opt-name { font-size: 13px; font-weight: 600; flex: 1; }
+  .opt-price {
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--accent2);
+    font-family: 'JetBrains Mono', monospace;
+    white-space: nowrap;
+  }
+  .opt-unit { font-size: 10px; color: var(--muted); margin-top: 2px; }
+
+  .rent-input {
+    width: 60px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--text);
+    font-size: 14px;
+    font-weight: 700;
+    padding: 6px;
+    text-align: center;
+    font-family: 'JetBrains Mono', monospace;
+  }
+  .rent-input:focus { outline: none; border-color: var(--accent); }
+
+  .add-btn {
+    background: var(--accent);
+    color: #fff;
+    border: none;
+    border-radius: 6px;
+    padding: 6px 14px;
+    font-size: 12px;
+    font-weight: 700;
+    cursor: pointer;
+    font-family: 'Noto Sans KR', sans-serif;
+    transition: opacity 0.2s;
+  }
+  .add-btn:hover { opacity: 0.85; }
+
+  .items-section {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 16px;
+    margin-bottom: 16px;
+  }
+
+  .item-row {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 12px 14px;
+    margin-bottom: 8px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .item-num {
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--muted);
+    font-family: 'JetBrains Mono', monospace;
+    min-width: 20px;
+    text-align: center;
+  }
+
+  .item-info { flex: 1; min-width: 0; }
+
+  .item-name {
+    font-size: 13px;
+    font-weight: 600;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .item-spec {
+    font-size: 10px;
+    color: var(--muted);
+    margin-top: 2px;
+    font-family: 'JetBrains Mono', monospace;
+  }
+
+  .item-qty-wrap { display: flex; align-items: center; gap: 4px; }
+
+  .item-qty {
+    width: 50px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--text);
+    font-size: 14px;
+    font-weight: 700;
+    padding: 6px;
+    text-align: center;
+    font-family: 'JetBrains Mono', monospace;
+  }
+  .item-qty:focus { outline: none; border-color: var(--accent); }
+
+  .item-unit { font-size: 11px; color: var(--muted); }
+
+  .item-amount {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--accent2);
+    font-family: 'JetBrains Mono', monospace;
+    text-align: right;
+    min-width: 80px;
+  }
+
+  .del-btn {
+    background: none;
+    border: none;
+    color: var(--red);
+    cursor: pointer;
+    font-size: 16px;
+    padding: 4px;
+    opacity: 0.6;
+    transition: opacity 0.2s;
+  }
+  .del-btn:hover { opacity: 1; }
+
+  .empty-msg {
+    text-align: center;
+    color: var(--muted);
+    font-size: 13px;
+    padding: 24px 0;
+  }
+
+  .total-section {
+    background: var(--surface);
+    border: 1px solid var(--accent);
+    border-radius: 12px;
+    padding: 16px;
+  }
+
+  .total-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 6px 0;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .total-row:last-of-type { border-bottom: none; }
+
+  .total-label { font-size: 13px; color: var(--muted); }
+
+  .total-value {
+    font-size: 14px;
+    font-weight: 700;
+    font-family: 'JetBrains Mono', monospace;
+    color: var(--text);
+  }
+
+  .total-row.grand .total-label {
+    font-size: 15px;
+    font-weight: 900;
+    color: var(--text);
+  }
+
+  .total-row.grand .total-value {
+    font-size: 20px;
+    font-weight: 900;
+    color: var(--green);
+  }
+
+  .btn-row {
+    display: flex;
+    gap: 8px;
+    margin-top: 12px;
+  }
+
+  .clear-btn {
+    flex: 1;
+    background: transparent;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--muted);
+    padding: 12px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    font-family: 'Noto Sans KR', sans-serif;
+    transition: all 0.2s;
+  }
+  .clear-btn:hover { border-color: var(--red); color: var(--red); }
+
+  .order-btn {
+    flex: 2;
+    background: var(--purple);
+    border: none;
+    border-radius: 8px;
+    color: #fff;
+    padding: 12px;
+    font-size: 14px;
+    font-weight: 700;
+    cursor: pointer;
+    font-family: 'Noto Sans KR', sans-serif;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+  }
+  .order-btn:hover { opacity: 0.88; }
+  .order-btn:active { transform: scale(0.98); }
+  .order-btn.copied {
+    background: var(--green);
+    color: #0f1117;
+  }
+
+  /* 복사 토스트 */
+  .toast {
+    position: fixed;
+    bottom: 24px;
+    left: 50%;
+    transform: translateX(-50%) translateY(80px);
+    background: var(--green);
+    color: #0f1117;
+    font-weight: 700;
+    font-size: 13px;
+    padding: 12px 24px;
+    border-radius: 24px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+    transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+    z-index: 9999;
+    white-space: nowrap;
+  }
+  .toast.show { transform: translateX(-50%) translateY(0); }
+
+  @media (max-width: 480px) {
+    .spec-inputs { gap: 6px; }
+    .spec-sep { font-size: 16px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="logo-badge">HDC</div>
+  <h1>단가 계산기</h1>
+  <div class="subtitle" id="lastUpdated">로딩 중...</div>
+</div>
+
+<div class="spec-section">
+  <div class="section-label">규격 입력</div>
+  <div class="spec-inputs">
+    <div class="spec-field">
+      <label>가로 (W)</label>
+      <input type="number" id="specW" value="3" step="0.1" min="0">
+    </div>
+    <div class="spec-sep">×</div>
+    <div class="spec-field">
+      <label>세로 (L)</label>
+      <input type="number" id="specL" value="6" step="0.1" min="0">
+    </div>
+    <div class="spec-sep">×</div>
+    <div class="spec-field">
+      <label>높이 (H)</label>
+      <input type="number" id="specH" value="2.6" step="0.1" min="0">
+    </div>
+  </div>
+  <div class="spec-preview" id="specPreview">3 × 6 × 2.6 m</div>
+</div>
+
+<div class="search-section">
+  <div class="section-label">옵션 검색</div>
+  <div class="search-wrap">
+    <input type="text" class="search-input" id="searchInput" placeholder="품목명 검색 (예: 단열, 창문, 도어...)">
+    <div class="dropdown" id="dropdown" style="display:none;"></div>
+  </div>
+</div>
+
+<div class="items-section">
+  <div class="section-label">선택 품목</div>
+  <div id="itemList"><div class="empty-msg">품목을 검색해서 추가하세요</div></div>
+</div>
+
+<div class="total-section">
+  <div class="section-label">합계</div>
+  <div class="total-row">
+    <div class="total-label">공급가액</div>
+    <div class="total-value" id="supplyAmount">0 원</div>
+  </div>
+  <div class="total-row">
+    <div class="total-label">부가세 (10%)</div>
+    <div class="total-value" id="vatAmount">0 원</div>
+  </div>
+  <div class="total-row grand">
+    <div class="total-label">합계금액</div>
+    <div class="total-value" id="totalAmount">0 원</div>
+  </div>
+  <div class="btn-row">
+    <button class="clear-btn" onclick="clearAll()">초기화</button>
+    <button class="order-btn" id="orderBtn" onclick="copyOrderText()">📋 발주 넣기</button>
+  </div>
+</div>
+
+<div class="toast" id="toast">📋 클립보드에 복사되었습니다!</div>
+
+<script>
+// ========== Supabase 설정 ==========
+const SUPABASE_URL = 'YOUR_SUPABASE_URL';
+const SUPABASE_ANON_KEY = 'YOUR_SUPABASE_ANON_KEY';
+const { createClient } = supabase;
+const db = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+let allOptions = [];
+let selectedItems = [];
+let searchTimer = null;
+
+// ========== 초성 검색 ==========
+const CHOSUNG = ['ㄱ','ㄲ','ㄴ','ㄷ','ㄸ','ㄹ','ㅁ','ㅂ','ㅃ','ㅅ','ㅆ','ㅇ','ㅈ','ㅉ','ㅊ','ㅋ','ㅌ','ㅍ','ㅎ'];
+const getChosung = str => str.split('').map(c => {
+  const code = c.charCodeAt(0) - 44032;
+  if (code < 0 || code > 11171) return c;
+  return CHOSUNG[Math.floor(code / 588)];
+}).join('');
+const isChosung = str => str.split('').every(c => CHOSUNG.includes(c));
+const matchKorean = (target, query) => {
+  if (!query) return true;
+  const q = query.toLowerCase();
+  const t = target.toLowerCase();
+  if (isChosung(q)) return getChosung(t).includes(q);
+  return t.includes(q);
+};
+
+// ========== 규격 ==========
+function getSpec() {
+  return {
+    w: parseFloat(document.getElementById('specW').value) || 0,
+    l: parseFloat(document.getElementById('specL').value) || 0,
+    h: parseFloat(document.getElementById('specH').value) || 0,
+  };
+}
+
+// ========== 가격 계산 ==========
+function calcOptionLine(opt, w, l, h) {
+  const pm = String(opt.price_mode || '').toLowerCase();
+  const qm = String(opt.qty_mode || '').toLowerCase();
+  const basePrice = Number(opt.unit_price || 0);
+  const w3Price = Number(opt.unit_price_w3 || 0);
+  const w4Price = Number(opt.unit_price_w4 || 0);
+  const smallPrice = Number(opt.unit_price_small || 0);
+  const largePrice = Number(opt.unit_price_large || 0);
+
+  let unitPrice = basePrice;
+  if (w === 4 && w4Price > 0) unitPrice = w4Price;
+  else if (w === 3 && w3Price > 0) unitPrice = w3Price;
+
+  const area = w * l;
+  if (pm === 'small_large') {
+    unitPrice = area <= 18 ? (smallPrice || unitPrice) : (largePrice || unitPrice);
+  }
+
+  let qty = 1;
+  if (qm === 'area') qty = Math.round(area * 10) / 10;
+  else if (qm === 'perimeter') qty = Math.round((2 * (w + l)) * 10) / 10;
+  else if (qm === 'width') qty = w;
+  else if (qm === 'length') qty = l;
+
+  const mMinBill = Number(opt.m_min_bill || 0);
+  const mMinUntil = Number(opt.m_min_until || 0);
+  if (mMinBill > 0 && mMinUntil > 0 && qty <= mMinUntil) {
+    return { qty: mMinBill, unitPrice, amount: Math.round(mMinBill * unitPrice) };
+  }
+
+  return { qty, unitPrice, amount: Math.round(qty * unitPrice) };
+}
+
+// ========== 옵션 로드 ==========
+async function loadOptions() {
+  const { data, error } = await db.from('branch_options').select('*');
+  if (error) {
+    console.error(error);
+    document.getElementById('lastUpdated').textContent = '로드 실패';
+    return;
+  }
+  allOptions = data || [];
+
+  const latest = allOptions
+    .map(o => o.updated_at)
+    .filter(Boolean)
+    .sort()
+    .pop();
+
+  if (latest) {
+    const d = new Date(latest);
+    const formatted =
+      `${d.getFullYear()}.${String(d.getMonth()+1).padStart(2,'0')}.${String(d.getDate()).padStart(2,'0')}\n` +
+      `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')} 업데이트`;
+    document.getElementById('lastUpdated').textContent = formatted;
+  } else {
+    document.getElementById('lastUpdated').textContent = '영업소 전용';
+  }
+}
+
+// ========== 검색 ==========
+function doSearch(q) {
+  if (!q.trim()) { hideDropdown(); return; }
+  const { w, l } = getSpec();
+  const area = w * l;
+
+  const results = allOptions.filter(o => {
+    if (!matchKorean(String(o.option_name || ''), q)) return false;
+    const kw = String(o.keywords || '').trim();
+    if (!kw) return true;
+    const norm = kw.toUpperCase().replace(/[×*]/g, 'X');
+    const parts = norm.split('X').map(s => parseFloat(s.trim()));
+    if (parts.length >= 2 && !isNaN(parts[0]) && !isNaN(parts[1])) {
+      const kwArea = parts[0] * parts[1];
+      return area <= 18 ? kwArea <= 18 : kwArea > 18;
+    }
+    return true;
+  }).slice(0, 20);
+
+  renderDropdown(results);
+}
+
+function renderDropdown(results) {
+  const dd = document.getElementById('dropdown');
+  if (!results.length) { dd.style.display = 'none'; return; }
+  const fmt = n => Number(n || 0).toLocaleString('ko-KR');
+
+  dd.innerHTML = results.map((opt, i) => {
+    const { w, l, h } = getSpec();
+    const calc = calcOptionLine(opt, w, l, h);
+    const isRent = String(opt.option_name || '').includes('임대');
+    const optEncoded = encodeURIComponent(JSON.stringify(opt));
+
+    if (isRent) {
+      return `
+        <div class="dropdown-item" style="flex-direction:column; align-items:flex-start; gap:6px;">
+          <div style="display:flex;justify-content:space-between;width:100%;align-items:center;">
+            <div>
+              <div class="opt-name">${opt.option_name}</div>
+              <div class="opt-unit">월 ${fmt(opt.unit_price)}원 / ${opt.unit || 'EA'}</div>
+            </div>
+            <div class="opt-price">${fmt(opt.unit_price)}원/월</div>
+          </div>
+          <div style="display:flex; align-items:center; gap:8px; padding-top:4px;">
+            <span style="font-size:12px; color:var(--muted);">개월</span>
+            <input class="rent-input" type="number" id="rent-${i}" value="3" min="1"
+              onclick="event.stopPropagation()" onmousedown="event.stopPropagation()">
+            <button class="add-btn"
+              onclick="event.stopPropagation(); addRentItem(${i}, '${optEncoded}')">추가</button>
+          </div>
+        </div>`;
+    }
+
+    return `
+      <div class="dropdown-item" onclick="addItem('${optEncoded}')">
+        <div>
+          <div class="opt-name">${opt.option_name}</div>
+          <div class="opt-unit">${opt.unit || 'EA'} · 수량 ${calc.qty}</div>
+        </div>
+        <div class="opt-price">${fmt(calc.amount)}원</div>
+      </div>`;
+  }).join('');
+
+  dd.style.display = 'block';
+}
+
+function hideDropdown() {
+  document.getElementById('dropdown').style.display = 'none';
+}
+
+// ========== 품목 추가 ==========
+function addItem(optEncoded) {
+  const opt = JSON.parse(decodeURIComponent(optEncoded));
+  const { w, l, h } = getSpec();
+  const calc = calcOptionLine(opt, w, l, h);
+
+  selectedItems.push({
+    id: Date.now(),
+    name: opt.option_name,
+    unit: opt.unit || 'EA',
+    qty: calc.qty,
+    unitPrice: calc.unitPrice,
+    amount: calc.amount,
+    isRent: false,
+    spec: `${w}×${l}×${h}`,
+  });
+
+  hideDropdown();
+  document.getElementById('searchInput').value = '';
+  renderItems();
+}
+
+function addRentItem(idx, optEncoded) {
+  const opt = JSON.parse(decodeURIComponent(optEncoded));
+  const months = parseInt(document.getElementById(`rent-${idx}`)?.value) || 3;
+  const monthlyPrice = Number(opt.unit_price || 0);
+  const totalPrice = monthlyPrice * months;
+  const { w, l, h } = getSpec();
+
+  selectedItems.push({
+    id: Date.now(),
+    name: `${opt.option_name} ${months}개월`,
+    unit: '개월',
+    qty: 1,
+    unitPrice: totalPrice,
+    amount: totalPrice,
+    isRent: true,
+    spec: `${w}×${l}×${h}`,
+  });
+
+  hideDropdown();
+  document.getElementById('searchInput').value = '';
+  renderItems();
+}
+
+// ========== 품목 렌더 ==========
+function renderItems() {
+  const list = document.getElementById('itemList');
+  if (!selectedItems.length) {
+    list.innerHTML = '<div class="empty-msg">품목을 검색해서 추가하세요</div>';
+    renderTotal();
+    return;
+  }
+
+  const fmt = n => Number(n || 0).toLocaleString('ko-KR');
+
+  list.innerHTML = selectedItems.map((item, i) => `
+    <div class="item-row">
+      <div class="item-num">${i + 1}</div>
+      <div class="item-info">
+        <div class="item-name">${item.name}</div>
+        <div class="item-spec">${item.spec} · ${fmt(item.unitPrice)}원/${item.unit}</div>
+      </div>
+      <div class="item-qty-wrap">
+        <input class="item-qty" type="number" value="${item.qty}" min="0" step="0.1"
+          onchange="updateQty(${item.id}, this.value)">
+        <div class="item-unit">${item.unit}</div>
+      </div>
+      <div class="item-amount">${fmt(item.amount)}원</div>
+      <button class="del-btn" onclick="deleteItem(${item.id})">✕</button>
+    </div>
+  `).join('');
+
+  renderTotal();
+}
+
+function updateQty(id, val) {
+  const item = selectedItems.find(i => i.id === id);
+  if (!item) return;
+  item.qty = parseFloat(val) || 0;
+  item.amount = Math.round(item.qty * item.unitPrice);
+  renderItems();
+}
+
+function deleteItem(id) {
+  selectedItems = selectedItems.filter(i => i.id !== id);
+  renderItems();
+}
+
+function clearAll() {
+  if (!selectedItems.length) return;
+  if (!confirm('전체 초기화하시겠습니까?')) return;
+  selectedItems = [];
+  renderItems();
+}
+
+// ========== 합계 ==========
+function renderTotal() {
+  const fmt = n => Number(n || 0).toLocaleString('ko-KR');
+  const supply = selectedItems.reduce((acc, i) => acc + (i.amount || 0), 0);
+  const vat = Math.round(supply * 0.1);
+  const total = supply + vat;
+  document.getElementById('supplyAmount').textContent = fmt(supply) + ' 원';
+  document.getElementById('vatAmount').textContent = fmt(vat) + ' 원';
+  document.getElementById('totalAmount').textContent = fmt(total) + ' 원';
+}
+
+// ========== 발주 넣기 - 클립보드 복사 ==========
+function copyOrderText() {
+  if (!selectedItems.length) {
+    showToast('추가된 품목이 없습니다', false);
+    return;
+  }
+
+  const fmt = n => Number(n || 0).toLocaleString('ko-KR');
+  const { w, l, h } = getSpec();
+  const supply = selectedItems.reduce((acc, i) => acc + (i.amount || 0), 0);
+  const vat = Math.round(supply * 0.1);
+  const total = supply + vat;
+
+  const lines = [
+    `[발주 내역]`,
+    `규격: ${w}×${l}×${h}m`,
+    `─────────────────`,
+    ...selectedItems.map((item, i) =>
+      `${i + 1}. ${item.name}\n   수량: ${item.qty}${item.unit} / 단가: ${fmt(item.unitPrice)}원 / 합계: ${fmt(item.amount)}원`
+    ),
+    `─────────────────`,
+    `공급가액: ${fmt(supply)}원`,
+    `부가세:   ${fmt(vat)}원`,
+    `합계금액: ${fmt(total)}원`,
+  ];
+
+  const text = lines.join('\n');
+
+  navigator.clipboard.writeText(text).then(() => {
+    showToast('클립보드에 복사되었습니다!', true);
+    const btn = document.getElementById('orderBtn');
+    btn.classList.add('copied');
+    btn.textContent = '복사 완료!';
+    setTimeout(() => {
+      btn.classList.remove('copied');
+      btn.innerHTML = ' 발주 넣기';
+    }, 2000);
+  }).catch(() => {
+    // fallback
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    ta.style.position = 'fixed';
+    ta.style.opacity = '0';
+    document.body.appendChild(ta);
+    ta.focus();
+    ta.select();
+    document.execCommand('copy');
+    document.body.removeChild(ta);
+    showToast('클립보드에 복사되었습니다!', true);
+  });
+}
+
+function showToast(msg, success) {
+  const toast = document.getElementById('toast');
+  toast.textContent = msg;
+  toast.style.background = success ? 'var(--green)' : 'var(--accent2)';
+  toast.classList.add('show');
+  setTimeout(() => toast.classList.remove('show'), 2500);
+}
+
+// ========== 규격 프리뷰 ==========
+function updateSpecPreview() {
+  const { w, l, h } = getSpec();
+  document.getElementById('specPreview').textContent = `${w} × ${l} × ${h} m`;
+}
+
+// ========== 이벤트 ==========
+document.getElementById('searchInput').addEventListener('input', e => {
+  clearTimeout(searchTimer);
+  searchTimer = setTimeout(() => doSearch(e.target.value), 200);
+});
+
+document.getElementById('searchInput').addEventListener('focus', e => {
+  if (e.target.value.trim()) doSearch(e.target.value);
+});
+
+document.addEventListener('click', e => {
+  if (!e.target.closest('.search-section')) hideDropdown();
+});
+
+['specW', 'specL', 'specH'].forEach(id => {
+  document.getElementById(id).addEventListener('input', updateSpecPreview);
+});
+
+// ========== 초기화 ==========
+loadOptions().then(() => console.log(`옵션 ${allOptions.length}개 로드 완료`));
+renderItems();
+</script>
+</body>
+</html>
