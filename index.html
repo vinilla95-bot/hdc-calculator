@@ -422,6 +422,53 @@ body {
 }
 .toast.show { transform: translateX(-50%) translateY(0); }
 
+.order-info-section {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 16px;
+  margin-bottom: 16px;
+}
+
+.order-info-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.order-info-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.order-info-label {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--muted);
+  min-width: 72px;
+  flex-shrink: 0;
+}
+
+.order-info-input {
+  flex: 1;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text);
+  font-size: 14px;
+  font-family: 'Noto Sans KR', sans-serif;
+  padding: 9px 12px;
+  transition: border-color 0.2s;
+}
+.order-info-input:focus { outline: none; border-color: var(--accent); }
+.order-info-input::placeholder { color: var(--muted); }
+
+input[type="date"].order-info-input {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 13px;
+}
+
 @media (max-width: 480px) {
   .spec-inputs { gap: 6px; }
   .spec-sep { font-size: 16px; }
@@ -468,6 +515,24 @@ body {
 <div class="items-section">
   <div class="section-label">선택 품목</div>
   <div id="itemList"><div class="empty-msg">품목을 검색해서 추가하세요</div></div>
+</div>
+
+<div class="order-info-section">
+  <div class="section-label">발주 정보</div>
+  <div class="order-info-fields">
+    <div class="order-info-row">
+      <div class="order-info-label">주문날짜</div>
+      <input type="date" class="order-info-input" id="orderDate">
+    </div>
+    <div class="order-info-row">
+      <div class="order-info-label">출고희망일</div>
+      <input type="date" class="order-info-input" id="shipDate">
+    </div>
+    <div class="order-info-row">
+      <div class="order-info-label">현장</div>
+      <input type="text" class="order-info-input" id="siteInput" placeholder="현장명 입력">
+    </div>
+  </div>
 </div>
 
 <div class="total-section">
@@ -876,12 +941,25 @@ function copyOrderText() {
   const vat = Math.round(supply * 0.1);
   const total = supply + vat;
 
+  const fmtDate = val => {
+    if (!val) return '-';
+    const [y, m, d] = val.split('-');
+    return `${y}.${m}.${d}`;
+  };
+
+  const orderDate = fmtDate(document.getElementById('orderDate').value);
+  const shipDate  = fmtDate(document.getElementById('shipDate').value);
+  const site      = document.getElementById('siteInput').value.trim() || '-';
+
   const lines = [
     `[발주 내역]`,
-    `규격: ${w}×${l}×${h}m`,
+    `주문날짜:   ${orderDate}`,
+    `출고희망일: ${shipDate}`,
+    `현장:       ${site}`,
+    `규격:       ${w}×${l}×${h}m`,
     `─────────────────`,
     ...selectedItems.map((item, i) =>
-      `${i + 1}. ${item.name}\n   수량: ${item.qty}${item.unit} / 단가: ${fmt(item.unitPrice)}원 / 합계: ${fmt(item.amount)}원`
+      `${i + 1}. ${item.name}  ${item.qty}개  ${fmt(item.amount)}원`
     ),
     `─────────────────`,
     `공급가액: ${fmt(supply)}원`,
@@ -949,6 +1027,10 @@ document.addEventListener('click', e => {
 });
 
 // ========== 초기화 ==========
+// 오늘 날짜 기본값
+const todayStr = new Date().toISOString().slice(0, 10);
+document.getElementById('orderDate').value = todayStr;
+
 loadOptions().then(() => console.log(`옵션 ${allOptions.length}개 로드 완료`));
 renderItems();
 </script>
