@@ -733,10 +733,7 @@ function renderDropdown(results) {
 
     return `
       <div class="dropdown-item" onclick="addItem('${optEncoded}')">
-        <div>
-          <div class="opt-name">${opt.option_name}</div>
-          <div class="opt-unit">${calc.unit} · 수량 ${calc.qty}</div>
-        </div>
+        <div class="opt-name">${opt.option_name}</div>
         <div class="opt-price">${fmt(calc.amount)}원</div>
       </div>`;
   }).join('');
@@ -757,14 +754,14 @@ function addItem(optEncoded) {
   selectedItems.push({
     id: Date.now(),
     name: opt.option_name,
-    unit: calc.unit,
-    qty: calc.qty,
-    unitPrice: calc.unitPrice,
+    unit: 'EA',
+    qty: 1,
+    unitPrice: calc.amount,   // 계산된 금액 자체가 1개 단가
     amount: calc.amount,
     isRent: false,
     spec: `${w}×${l}×${h}`,
-    opt,             // 재계산용 원본 옵션 저장
-    qtyLocked: false // 수동 수량 변경 여부
+    opt,
+    qtyLocked: false
   });
 
   hideDropdown();
@@ -800,16 +797,12 @@ function addRentItem(idx, optEncoded) {
 function recalcAllItems() {
   const { w, l, h } = getSpec();
   selectedItems = selectedItems.map(item => {
-    if (!item.opt || item.isRent) return item; // 임대는 개월수 고정이므로 스킵
-    const calc = calcOptionLine(item.opt, w, l, h,
-      item.qtyLocked ? { qty: item.qty } : {}
-    );
+    if (!item.opt || item.isRent) return item;
+    const calc = calcOptionLine(item.opt, w, l, h);
     return {
       ...item,
-      unit: calc.unit,
-      qty: item.qtyLocked ? item.qty : calc.qty,
-      unitPrice: calc.unitPrice,
-      amount: item.qtyLocked ? roundToTenThousand(item.qty * calc.unitPrice) : calc.amount,
+      unitPrice: calc.amount,   // 재계산된 기본 금액이 새 단가
+      amount: roundToTenThousand(item.qty * calc.amount),
       spec: `${w}×${l}×${h}`,
     };
   });
@@ -830,12 +823,12 @@ function renderItems() {
       <div class="item-num">${i + 1}</div>
       <div class="item-info">
         <div class="item-name">${item.name}</div>
-        <div class="item-spec">${item.spec} · ${fmt(item.unitPrice)}원/${item.unit}</div>
+        <div class="item-spec">${item.spec}</div>
       </div>
       <div class="item-qty-wrap">
-        <input class="item-qty" type="number" value="${item.qty}" min="0" step="0.1"
+        <input class="item-qty" type="number" value="${item.qty}" min="0" step="1"
           onchange="updateQty(${item.id}, this.value)">
-        <div class="item-unit">${item.unit}</div>
+        <div class="item-unit">개</div>
       </div>
       <div class="item-amount">${fmt(item.amount)}원</div>
       <button class="del-btn" onclick="deleteItem(${item.id})">✕</button>
@@ -850,7 +843,6 @@ function updateQty(id, val) {
   if (!item) return;
   item.qty = parseFloat(val) || 0;
   item.amount = roundToTenThousand(item.qty * item.unitPrice);
-  item.qtyLocked = true; // 수동 변경 → 이후 규격 변경에도 수량 유지
   renderItems();
 }
 
