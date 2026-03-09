@@ -551,11 +551,11 @@ input[type="date"].order-info-input {
   </div>
   <div class="btn-row">
     <button class="clear-btn" onclick="clearAll()">초기화</button>
-    <button class="order-btn" id="orderBtn" onclick="copyOrderText()">📋 발주 넣기</button>
+    <button class="order-btn" id="orderBtn" onclick="copyOrderText()">발주 넣기</button>
   </div>
 </div>
 
-<div class="toast" id="toast">📋 클립보드에 복사되었습니다!</div>
+<div class="toast" id="toast">클립보드에 복사되었습니다!</div>
 
 <script>
 // ========== Supabase ==========
@@ -1030,6 +1030,25 @@ document.addEventListener('click', e => {
 // 오늘 날짜 기본값
 const todayStr = new Date().toISOString().slice(0, 10);
 document.getElementById('orderDate').value = todayStr;
+
+// 주문날짜 붙여넣기 자동 파싱
+document.getElementById('orderDate').addEventListener('paste', e => {
+  e.preventDefault();
+  const raw = (e.clipboardData || window.clipboardData).getData('text').trim();
+  // 숫자만 추출
+  const digits = raw.replace(/\D/g, '');
+  let parsed = '';
+  if (digits.length === 8) {
+    // YYYYMMDD → YYYY-MM-DD
+    parsed = `${digits.slice(0,4)}-${digits.slice(4,6)}-${digits.slice(6,8)}`;
+  } else if (digits.length === 6) {
+    // YYMMDD → 20YY-MM-DD
+    parsed = `20${digits.slice(0,2)}-${digits.slice(2,4)}-${digits.slice(4,6)}`;
+  }
+  if (parsed && !isNaN(new Date(parsed).getTime())) {
+    document.getElementById('orderDate').value = parsed;
+  }
+});
 
 loadOptions().then(() => console.log(`옵션 ${allOptions.length}개 로드 완료`));
 renderItems();
